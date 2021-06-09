@@ -1,0 +1,146 @@
+#include <stdio.h>
+#include <unistd.h>
+#include <signal.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <sys/wait.h>
+
+enum
+{
+    ARG_NUM = 2
+};
+
+int signal_got = 0;
+
+void
+handler(int sig)
+{
+    if (sig == SIGUSR1) {
+        signal_got = 1;
+    }
+}
+
+void
+wait_signal(sigset_t *old_mask)
+{
+    while (!signal_got) {
+        sigsuspend(old_mask);
+    }
+    signal_got = 0;
+}
+
+void
+work(int id, sigset_t *old_mask, int max_num, int other_pid, int out)
+{
+    int number = 1;
+    while (1) {
+        scanf("%d", &number);
+    
+        if (number >= max_num) {
+            printf("%d\n", max_num);
+            fflush(stdout);
+            kill(other_pid, SIGUSR1);
+            return;
+        }
+    
+        dprintf(out, "%d %d\n", id, number);
+        fflush(stdout);
+    
+        printf("%d\n", ++number);
+        fflush(stdout);
+        
+        kill(other_pid, SIGUSR1);
+        wait_signal(old_mask);
+    }
+}
+
+int
+main(int argc, char *argv[])
+{
+    if (argc < ARG_NUM) {
+        return 1;
+    }
+
+    int max_num;
+    sscanf(argv[1], "%d", &max_num);
+
+    struct sigaction sig;
+    sig.sa_handler = handler;
+    sig.sa_flags = 0;
+    sigaction(SIGUSR1, &sig, NULL);
+
+    sigset_t new_mask, old_mask;
+    sigemptyset(&new_mask);
+    sigaddset(&new_mask, SIGUSR1);
+    sigprocmask(SIG_BLOCK, &new_mask, &old_mask);
+
+    int pfd1[2];
+    int pfd2[2];
+    pipe(pfd1);
+    pipe(pfd2);
+
+    int out = dup(1);
+
+    pid_t pids[2];
+    if (!(pids[0] = fork())) {
+        dup2(pfd1[0], 0);
+        dup2(pfd2[1], 1);
+
+        close(pfd1[0]);
+        close(pfd2[0]);
+        close(pfd1[1]);
+        close(pfd2[1]);
+
+        wait_signal(&old_mask);
+        
+        pid_t other_pid;
+        scanf("%u", &other_pid);
+        
+        kill(other_pid, SIGUSR1);
+        wait_signal(&old_mask);
+        
+        work(1, &old_mask, max_num, other_pid, out);
+        _exit(0);
+    } else if (pids[0] < 0) {
+        perror(argv[0]);
+        return 1;
+    }
+
+    if (!(pids[1] = fork())) {
+        dup2(pfd2[0], 0);
+        dup2(pfd1[1], 1);
+
+        close(pfd1[0]);
+        close(pfd2[0]);
+        close(pfd1[1]);
+        close(pfd2[1]);
+
+        printf("%u\n", getpid());
+        fflush(stdout);
+        kill(pids[0], SIGUSR1);
+        wait_signal(&old_mask);
+
+        printf("%d\n", 1);
+        fflush(stdout);
+        kill(pids[0], SIGUSR1);
+        wait_signal(&old_mask);
+
+        work(2, &old_mask, max_num, pids[0], out);
+        _exit(0);
+    } else if (pids[1] < 0) {
+        perror(argv[0]);
+        return 1;
+    }
+
+    close(pfd1[0]);
+    close(pfd1[1]);
+    close(pfd2[0]);
+    close(pfd2[1]);
+
+    wait(NULL);
+    wait(NULL);
+
+    printf("Done\n");
+    fflush(stdout);
+    return 0;
+}

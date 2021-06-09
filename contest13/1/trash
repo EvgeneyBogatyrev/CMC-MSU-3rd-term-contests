@@ -1,0 +1,100 @@
+#include <stdio.h>
+#include <unistd.h>
+#include <sys/mman.h>
+#include <sys/wait.h>
+#include <sys/types.h>
+#include <sys/eventfd.h>
+#include <stdlib.h>
+#include <inttypes.h>
+
+enum { ARG_NUM = 4 };
+
+struct Data {
+    unsigned number;
+    int proc_num;
+};
+
+void
+work(int id, int *eventfds, struct Data *ptr, unsigned maxval, int nproc)
+{
+    while (1) {
+        uint64_t buf;
+        read(eventfds[id], &buf, sizeof(buf));
+
+        if (buf != 1) {
+            break;
+        }
+
+        printf("%d %d %d\n", id + 1, ptr->number, ptr->proc_num);
+        ptr->number++;
+        ptr->proc_num = id + 1;
+
+        int val = ptr->number;
+
+        if (val > maxval) {
+            break;
+        }
+
+        int rec = (val * val * val * val) % nproc + 1;
+
+        buf = 0;
+        write(eventfds[id], &buf, sizeof(buf));
+
+        buf = 1;
+        write(eventfds[rec - 1], &buf, sizeof(buf));
+
+    }
+}
+
+int
+main(int argc, char *argv[])
+{
+    if (argc < ARG_NUM) {
+        return 1;
+    }
+
+    int nproc, key;
+    unsigned maxval;
+
+    sscanf(argv[1], "%d", &nproc);
+    sscanf(argv[2], "%d", &key);
+    sscanf(argv[3], "%u", &maxval);
+
+    int *eventfds = calloc(nproc, sizeof(*eventfds));
+    eventfds[0] = eventfd(1, 0);
+    for (int i = 1; i < nproc; ++i) {
+        eventfds[i] = eventfd(0, 0);
+    }
+
+    struct Data *ptr = mmap(NULL, sizeof(*ptr), PROT_READ | PROT_WRITE, MAP_ANON | MAP_SHARED, -1, 0);
+    ptr->number = 0;
+    ptr->proc_num = 0;
+
+    pid_t pids[nproc];
+
+    for (int i = 0; i < nproc; ++i) {
+        if ((pids[i] = fork()) < 0) {
+            perror(argv[0]);
+            return 1;
+        } else if (!pids[i]) {
+            work(i, eventfds, ptr, maxval, nproc);
+            _exit(0);
+        }
+    }
+
+    wait(NULL);
+
+    for (int i = 0; i < nproc; ++i) {
+        uint64_t buf = 2;
+        write(eventfds[i], &buf, sizeof(buf));
+    }
+
+    while (wait(NULL) > 0) {}
+
+    munmap(ptr, sizeof(*ptr));
+    for (int i = 0; i < nproc; ++i) {
+        close(eventfds[i]);
+    }
+    
+    return 0;
+}

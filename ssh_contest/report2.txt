@@ -1,0 +1,35 @@
+ANSWERS
+***Answer 17:
+/home/s02190102
+Путь в домашний каталог пользователя
+***Answer 18:
+/usr/include
+***Answer 19:
+Время последней модификации - текущее время (19 сент. 20:48)
+Права доступа - 755
+***Answer 20:
+Размер: 38 байт
+Содержимое: 1 /home/s02190102 2 /home/s02190102 3
+***Answer 21:
+/etc/crontab
+***Answer 22:
+total 4
+-rwxr-xr--  1 s02190102  Domain Admins  1090 19 сент. 21:31 hosts
+-rwxr-xr--  1 s02190102  Domain Admins  2515 19 сент. 21:31 passwd
+***Answer 23:
+total 4
+-rwxr-xr--  1 s02190102  Domain Admins  1090 19 сент. 21:31 hosts2
+-rwxr-xr--  1 s02190102  Domain Admins  2515 19 сент. 21:31 passwd
+***Answer 24:
+USER=s02190102
+UID=27495
+***Answer 25:
+/usr/local/bin/bash
+***Answer 26:
+”/etc:/sbin:/bin:/usr/sbin:/usr/bin:/usr/games:/usr/local/sbin:/usr/local/bin:/home/s02190102/bin:/usr/include”
+***Answer 27:
+/usr/bin
+***Answer 28:
+ls /123 завершился с кодом возврата 1
+ls /home завершился с кодом возврата 0
+(stdin)= 3045022100dd8e2ef668511ee6cf246ac098ac1a8042c9db2ece070a7c227b9d6cbd5f2894022054a538822c54b4bb9c9fb9318bc018d0b43fe6b9a5b93da0bc37f836bd9003d8
